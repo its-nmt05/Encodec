@@ -6,8 +6,6 @@ from conv import SConv1d, SConvTranspose1d
 from resnet import ResnetBlock
 from lstm import LSTM
 
-import torch
-
 
 class Encoder(nn.Module):
     
