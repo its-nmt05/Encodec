@@ -1,8 +1,9 @@
-"""Modified form of LayerNorm for convolutions that moves the channel dimension to the end before applying the norm"""
 import torch.nn as nn
 
 
 class ConvLayerNorm(nn.LayerNorm):
+    """Modified form of LayerNorm for convolutions that moves the channel dimension to the end before applying the norm"""
+    
     def __init__(self, normalized_shape):
         super().__init__(normalized_shape)
 

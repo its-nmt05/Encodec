@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 import torch.nn.functional as F
-from .norm import ConvLayerNorm
+from norm import ConvLayerNorm
 
 import typing as tp
 import math
@@ -52,11 +52,18 @@ def pad1d(x: torch.Tensor, paddings: tp.Tuple[int, int], mode: str = 'constant',
     else:
         return F.pad(x, paddings, mode, value)
     
+def unpad1d(x: torch.Tensor, padding: tp.Tuple[int, int]) -> torch.Tensor:
+    """Removes padding from x"""
+    padding_left, padding_right = padding
+    end = x.shape[-1] - padding_right
+    return x[..., padding_left : end] # unpadded tensor
+    
 
 class NormConv1d(nn.Module):
-    def __init__(self, norm: str = 'none', *args):
+    def __init__(self, *args, norm: str = 'none', **kwargs):
         super().__init__()
-        self.conv = nn.Conv1d(*args)
+        # NormConv1d(in_channels, out_channels, kernel_size, stride, dilation, bias, norm=norm)
+        self.conv = nn.Conv1d(*args, **kwargs)
         self.norm = get_norm_module(self.conv, norm)
 
     def forward(self, x):
@@ -74,9 +81,9 @@ class NormConv1d(nn.Module):
 
 
 class NormConvTranspose1d(nn.Module):
-    def __init__(self, norm: str = 'none', *args):
+    def __init__(self, *args, norm: str = 'none', **kwargs):
         super().__init__()
-        self.convtr = nn.ConvTranspose1d(*args)
+        self.convtr = nn.ConvTranspose1d(*args, **kwargs)
         self.norm = get_norm_module(self.convtr, norm)
 
     def forward(self, x):
@@ -89,7 +96,7 @@ class NormConvTranspose1d(nn.Module):
 class SConv1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, dilation: int = 1, bias: bool = True, causal: bool = False, norm: str = 'none', pad_mode: str = 'reflect'):
         super().__init__()
-        self.conv = NormConv1d(in_channels, out_channels, kernel_size, stride, dilation, bias, norm=norm)
+        self.conv = NormConv1d(in_channels, out_channels, kernel_size, stride, dilation=dilation, bias=bias, norm=norm)
         self.causal = causal
         self.pad_mode = pad_mode
         
@@ -111,3 +118,32 @@ class SConv1d(nn.Module):
             padding_left = padding_total - padding_right
             x = pad1d(x, (padding_left, padding_right + extra_padding), mode=self.pad_mode)
         return self.conv(x)
+    
+class SConvTranspose1d(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int,
+               kernel_size: int, stride: int = 1, causal: bool = False,
+               norm: str = 'none', trim_right_ratio: float = 1):
+        super().__init__()
+        self.convtr = NormConvTranspose1d(in_channels, out_channels, kernel_size, stride, norm=norm)
+        self.causal = causal
+        self.trim_right_ratio = trim_right_ratio
+        
+        
+    def forward(self, x):
+        kernel_size = self.convtr.convtr.kernel_size[0]
+        stride = stride = self.convtr.convtr.stride[0]
+        padding_total = kernel_size - stride    # P_tot = K - S as per the paper
+        
+        y = self.convtr(x)
+        
+        if self.causal:
+            # trim padding from the right in the decoder
+            padding_right = math.ceil(padding_total * self.trim_right_ratio)
+            padding_left = padding_total - padding_right
+            y = unpad1d(y, (padding_left, padding_right))
+        else:
+            # remove padding on both sides for non-causal
+            padding_right = padding_total // 2
+            padding_left = padding_total - padding_right
+            y = unpad1d(y, (padding_left, padding_right))
+        return y
