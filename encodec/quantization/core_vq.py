@@ -21,7 +21,7 @@ def sample_vectors(samples, num: int):
     num_samples, device = samples.shape[0], samples.device
     
     if num_samples >= num:
-        indices = torch.randperm(num_samples, device= device)[:num]
+        indices = torch.randperm(num_samples, device=device)[:num]
     else:
         indices = torch.randint(0, num_samples, (num,), device=device)
         
@@ -86,8 +86,8 @@ class EuclideanCodebook(nn.Module):
     
     def replace_(self, samples, mask):
         new_codebook = torch.where(
-            mask[..., None], samples, sample_vectors(samples, self.codebook_size), self.embed
-            ) # replace codebook vectors with new samples
+            mask[..., None], sample_vectors(samples, self.codebook_size), self.embed
+        ) # replace codebook vectors with new samples
         self.embed.data.copy_(new_codebook)
     
     # replace codebook vectors which are not used
@@ -95,7 +95,7 @@ class EuclideanCodebook(nn.Module):
         if self.threshold_ema_dead_code == 0:   
             return
         
-        expired_codes = self.cluster_size < self.threshold_ema_dead_code    # check if codepoint is expired (not used)
+        expired_codes = self.cluster_size < self.threshold_ema_dead_code # check if codepoint is expired (not used)
         if not torch.any(expired_codes):
             return
         
@@ -112,8 +112,12 @@ class EuclideanCodebook(nn.Module):
     
     def qunatize(self, x):
         embed = self.embed.t()  
-        dist = -torch.cdist(x, embed)  # calculate the distance between each sample and codebook vectors
-        embed_ind =dist.max(-1).indices # closet codebook vector index
+        dist = -(
+            x.pow(2).sum(1, keepdim=True)
+            - 2 * x @ embed
+            + embed.pow(2).sum(0, keepdim=True)
+        ) # calculate the L2 distance between x and codebook vectors
+        embed_ind = dist.max(-1).indices # closet codebook vector index
         return embed_ind
     
     def dequantize(self, embed_ind):
@@ -171,7 +175,7 @@ class VectorQuantization(nn.Module):
         self.eps = epsilon
         self.codebook_size = codebook_size
         self.commitment_weight = commitment_weight
-        self._codebook = EuclideanCodebook(dim=dim, codebook_size=dim, 
+        self._codebook = EuclideanCodebook(dim=_codebook_dim, codebook_size=codebook_size, 
                                            kmeans_init=kmeans_init, kmeans_iters=kmeans_iters,
                                            decay=decay, epsilon=epsilon, 
                                            threshold_ema_dead_code=threshold_ema_dead_code)
@@ -200,12 +204,59 @@ class VectorQuantization(nn.Module):
         loss = torch.tensor([0.0], device=x.device, requires_grad=self.training)
         if self.training:
             quantized = x + (quantized - x).detach() # stop gradient flow during backprop through quantized
-            commit_loss = F.mse_loss(x, quantized.detach())
-            loss = loss + commit_loss * self.commitment_weight
             
+            if self.commitment_weight > 0: 
+                commit_loss = F.mse_loss(x, quantized.detach())
+                loss = loss + commit_loss * self.commitment_weight
+                
+        quantized = self.project_out(quantized)
+        quantized = quantized.permute(0, 2, 1)  # (B, N, D) -> (B, D, N)
         return quantized, embed_ind, loss
     
     
 class ResidualVectorQuantization(nn.Module):
-    # TODO: implement residual vector quantization
-    pass
+    
+    def __init__(self, *, num_quantizers: int, **kwargs):
+        super().__init__()
+        self.layers = nn.ModuleList([VectorQuantization(**kwargs) for _ in range(num_quantizers)])
+        
+    def forward(self, x,  n_q: tp.Optional[int] = None):
+        residual = x
+        quantized_out = 0.0
+        
+        all_losses = []
+        all_indices = []
+        
+        n_q = n_q or len(self.layers)
+        
+        for layer in self.layers[:n_q]:
+            quantized, indices, loss = layer(residual)
+            residual = residual - quantized
+            quantized_out += quantized
+            
+            all_indices.append(indices)
+            all_losses.append(loss)
+        
+        out_losses, out_indices = torch.stack(all_losses), torch.stack(all_indices)
+        return quantized_out, out_indices, out_losses
+    
+    def encode(self, x: torch.Tensor, n_q: tp.Optional[int] = None) -> torch.Tensor:
+        residual = x
+        all_indices = []
+        n_q = n_q or len(self.layers)
+        
+        for layer in self.layers[:n_q]:
+            indices = layer.encode(residual)
+            quantized = layer.decode(indices)
+            residual = residual - quantized
+            all_indices.append(indices)
+        out_indices = torch.stack(all_indices)
+        return out_indices
+    
+    def decode(self, q_indices: torch.Tensor) -> torch.Tensor:
+        quantized_out = torch.tensor(0.0, device=q_indices.device)            
+        for i, indices in enumerate(q_indices):
+            layer = self.layers[i]
+            quantized = layer.decode(indices)
+            quantized_out = quantized_out + quantized
+        return quantized_out
