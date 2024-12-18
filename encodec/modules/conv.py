@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 import torch.nn.functional as F
-from norm import ConvLayerNorm
+from .norm import ConvLayerNorm
 
 import typing as tp
 import math
@@ -33,8 +33,6 @@ def get_extra_padding(x: torch.Tensor, kernel_size: int, stride: int, padding_to
     n_out = (length + padding_total - kernel_size) / stride + 1 # np_out = (n_in + 2*padding - kernel_size) / stride + 1
     ideal_length = (math.ceil(n_out) - 1) * stride + (kernel_size - padding_total)  
     return ideal_length - length    # extra padding required
-    
-
     
 def pad1d(x: torch.Tensor, paddings: tp.Tuple[int, int], mode: str = 'constant', value: float = 0.0) -> torch.Tensor:
     """Applies padding to the input tensor. In case of 'reflect' mode, modifies the input if necessary for padding"""
@@ -70,14 +68,14 @@ class NormConv1d(nn.Module):
         return self.norm(self.conv(x))
 
 
-# class NormConv2d(nn.Module):
-#     def __init_(self):
-#         super().__init__()
-#         self.conv = nn.Conv2d()
-#         self.norm = nn.LayerNorm()
+class NormConv2d(nn.Module):
+    def __init__(self, *args, norm: str = 'none', **kwargs):
+        super().__init__()
+        self.conv = nn.Conv2d(*args, **kwargs)
+        self.norm = get_norm_module(self.conv, norm)
 
-#     def forward(self, x):
-#         return self.norm(self.conv(x))
+    def forward(self, x):
+        return self.norm(self.conv(x))
 
 
 class NormConvTranspose1d(nn.Module):
@@ -89,10 +87,17 @@ class NormConvTranspose1d(nn.Module):
     def forward(self, x):
         return self.norm(self.convtr(x))
 
-# class NormConvTranspose2d(nn.Module):
-#     pass
 
+class NormConvTranspose2d(nn.Module):
+    def __init__(self, *args, norm: str = 'none', **kwargs):
+        super().__init__()
+        self.convtr = nn.ConvTranspose2d(*args, **kwargs)
+        self.norm = get_norm_module(self.convtr, norm)
 
+    def forward(self, x):
+        return self.norm(self.convtr(x))
+    
+    
 class SConv1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, dilation: int = 1, bias: bool = True, causal: bool = False, norm: str = 'none', pad_mode: str = 'reflect'):
         super().__init__()
@@ -100,7 +105,6 @@ class SConv1d(nn.Module):
         self.causal = causal
         self.pad_mode = pad_mode
         
-
     def forward(self, x):
         B, C, T = x.shape
         kernel_size = self.conv.conv.kernel_size[0]

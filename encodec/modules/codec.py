@@ -2,9 +2,12 @@ import torch.nn as nn
 import typing as tp
 import numpy as np
 
-from conv import SConv1d, SConvTranspose1d
-from resnet import ResnetBlock
-from lstm import LSTM
+from . import (
+    SConv1d,
+    SConvTranspose1d,
+    ResnetBlock,
+    LSTM
+)
 
 
 class Encoder(nn.Module):

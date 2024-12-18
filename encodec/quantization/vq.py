@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from core_vq import ResidualVectorQuantization
+from .core_vq import ResidualVectorQuantization
 
 from dataclasses import dataclass, field
 import typing as tp

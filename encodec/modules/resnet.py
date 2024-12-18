@@ -1,6 +1,7 @@
 import torch.nn as nn
-from conv import SConv1d
 import typing as tp
+from . import SConv1d
+
 
 class ResnetBlock(nn.Module):
     """Residual block modelled after the SEANet paper.
