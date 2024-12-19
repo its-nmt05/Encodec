@@ -17,7 +17,7 @@ class EncodecModel(nn.Module):
     """Encodec model"""
     def __init__(self, encoder: m.Encoder, decoder: m.Decoder, qauntizer: qt.ResiualVectorQuantizer, 
                  target_bandwidths: tp.List[float], sample_rate: int, channels: int, normalize: bool = False, 
-                 segment: tp.Optional[float] = None, overlap: tp.Optional[float] = None, name: str = 'encodec'):
+                 segment: tp.Optional[float] = None, overlap: float = 0.01, name: str = 'encodec'):
         super().__init__()
         self.bandwidth: tp.Optional[float] = None
         self.target_bandwidths = target_bandwidths
@@ -72,7 +72,7 @@ class EncodecModel(nn.Module):
             codes = codes.transpose(0, 1)
             emb = self.quantizer.decode(codes)   
         out = self.decoder(emb) 
-        if scale:
+        if scale is not None:
             out = out * scale.view(-1, 1, 1) # scale back to original volume
         return out
     

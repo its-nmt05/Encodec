@@ -5,7 +5,7 @@ import librosa
 
 
 class CustomAudioDataset(Dataset):
-    def __init__(self, dataset_folder, n_samples=400, transform=None, sample_rate=24000, channels=1, tensor_cut=15000):
+    def __init__(self, dataset_folder, n_samples=400, transform=None, sample_rate=24000, channels=1, tensor_cut=None):
         self.audio_folder = dataset_folder
         self.transform = transform
         self.sample_rate = sample_rate
@@ -40,15 +40,17 @@ class CustomAudioDataset(Dataset):
 
 def load_audio_files(path, extension='.wav'):
     # Load the audio files
-    audio_files = []
-    for label in os.listdir(path):
-        class_folder = os.path.join(path, label)
-        if os.path.isdir(class_folder):
-            for file in os.listdir(class_folder):
-                if file.endswith(extension):
-                    audio_files.append(os.path.join(path, label, file))
-    return audio_files
+    def traverse_dir(dir_path):
+        for item in os.listdir(dir_path):
+            item_path = os.path.join(dir_path, item)
+            if os.path.isdir(item_path):
+                traverse_dir(item_path)
+            elif item_path.endswith(extension):
+                audio_files.append(item_path)
 
+    audio_files = []
+    traverse_dir(path)
+    return audio_files
 
 def pad_sequence(batch):
     # Make all tensor in a batch the same length by padding with zeros

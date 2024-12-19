@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils import weight_norm
+from torch.nn.utils.parametrizations import weight_norm
 import torch.nn.functional as F
 from .norm import ConvLayerNorm
 
@@ -17,11 +17,10 @@ import math
     
 def get_norm_module(module: nn.Module, norm: str = 'none') -> nn.Module:
     """Returns the normalization module based on the given norm type"""
-    
     if norm == 'layer_norm':
         return ConvLayerNorm(module.out_channels)
     elif norm == 'weight_norm':
-        return weight_norm
+        return weight_norm(module)
     else:
         return nn.Identity()
     

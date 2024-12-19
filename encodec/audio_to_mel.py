@@ -12,8 +12,6 @@ class Audio2Mel(nn.Module):
                  n_mel_banks: int = 64, mel_fmin: float = 0.0, 
                  mel_fmax: float = None, device: str = 'cuda'):
         super().__init__()
-        if mel_fmax is None:
-            mel_fmax = sampling_rate / 2
         window = torch.hann_window(win_length, device=device).float()
         # create a mel filter bank to transform fft bins to mel bins
         mel_basis = librosa_mel_fn(sr=sampling_rate, n_fft=n_fft, n_mels=n_mel_banks, fmin=mel_fmin, fmax=mel_fmax) 
