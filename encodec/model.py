@@ -100,6 +100,7 @@ class EncodecModel(nn.Module):
         return _linear_overlap_add(frames, self.segment_stride or 1) # overlap and add frames
     
     def forward(self, x: torch.Tensor):
+        l2loss = torch.nn.MSELoss(reduction='mean')
         encoded_frames = self.encode(x) # input_wav -> encoder
         
         if self.training:
@@ -110,11 +111,12 @@ class EncodecModel(nn.Module):
             bw = self.target_bandwidths[index.item()] # variable bandwidth training
             for emb, scale in encoded_frames:
                 qv = self.quantizer(emb, self.frame_rate, bw)
-                loss_w = loss_w + qv.penalty # RVQ commit loss
+                loss_w = loss_w + qv.penalty + l2loss(qv.quantized, emb) ** 2  # RVQ commit loss
                 codes.append((qv.quantized, scale))
             return self.decode(codes)[:, :, :x.shape[-1]], loss_w
-        # not training: input_wav -> encoder -> quantizer encode -> decode
-        return self.decode(encoded_frames)[:, :, :x.shape[-1]] # trim to original length
+        else:
+            # not training: input_wav -> encoder -> quantizer encode -> decode
+            return self.decode(encoded_frames)[:, :, :x.shape[-1]] # trim to original length
     
     def set_target_bandwidth(self, bandwidth: float):
         if bandwidth not in self.target_bandwidths:

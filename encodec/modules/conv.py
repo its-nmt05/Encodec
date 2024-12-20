@@ -72,9 +72,9 @@ class NormConv2d(nn.Module):
         super().__init__()
         self.conv = nn.Conv2d(*args, **kwargs)
         self.norm = get_norm_module(self.conv, norm)
-
+        
     def forward(self, x):
-        return self.norm(self.conv(x))
+        return self.conv(x)
 
 
 class NormConvTranspose1d(nn.Module):

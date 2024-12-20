@@ -2,16 +2,21 @@ import os
 import torch
 from torch.utils.data import Dataset
 import librosa
-
+import random
 
 class CustomAudioDataset(Dataset):
-    def __init__(self, dataset_folder, n_samples=400, transform=None, sample_rate=24000, channels=1, tensor_cut=None):
+    def __init__(self, dataset_folder, n_samples=400, transform=None, 
+                 sample_rate=24000, channels=1, tensor_cut=None, 
+                 randomize: bool = False, extension: str = '.wav'):
         self.audio_folder = dataset_folder
         self.transform = transform
         self.sample_rate = sample_rate
         self.channels = channels
         self.tensor_cut = tensor_cut
-        self.audio_files = load_audio_files(dataset_folder)[:n_samples]
+        self.audio_files = load_audio_files(dataset_folder, extension)
+        if randomize: 
+            random.shuffle(self.audio_files)
+        self.audio_files = self.audio_files[:n_samples]
 
     def __len__(self):
         return len(self.audio_files)

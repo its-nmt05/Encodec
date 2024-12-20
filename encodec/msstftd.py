@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torchaudio
 import torch
-
+from einops import rearrange
 from .modules import NormConv2d
 
 import typing as tp
@@ -17,7 +17,7 @@ class DiscriminatorSTFT(nn.Module):
                  n_fft: int = 1024, hop_length: int = 256, win_length: int = 1024,
                  max_filters: int = 1024, filters_scale: int = 1, kernel_size: tp.Tuple[int, int] = (3, 9),
                  stride: tp.Tuple[int, int] = (1, 2), dilations: tp.List = [1, 2, 4], normalized: bool = True, 
-                 norm: str = 'none', activation: str = 'LeakyReLU', activation_params: dict = {'negative_slope': 0.2}):
+                 norm: str = 'weight_norm', activation: str = 'LeakyReLU', activation_params: dict = {'negative_slope': 0.2}):
         super().__init__()
         self.filters = filters
         self.in_channels = in_channels
@@ -56,7 +56,8 @@ class DiscriminatorSTFT(nn.Module):
         fmap = []
         z = self.spec_transform(x)
         z = torch.cat([z.real, z.imag], dim=1)  
-        z = z.permute(0, 1, 3, 2)
+        # z = z.permute(0, 1, 3, 2)
+        z = rearrange(z, 'b c w t -> b c t w')
         for layer in self.convs:
             z = layer(z)
             z = self.activation(z)
