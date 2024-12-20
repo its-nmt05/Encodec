@@ -1,7 +1,7 @@
 import os
 import torch
 from torch.utils.data import Dataset
-import librosa
+import torchaudio
 import random
 
 class CustomAudioDataset(Dataset):
@@ -23,9 +23,8 @@ class CustomAudioDataset(Dataset):
 
     def __getitem__(self, idx):
         audio_path = self.audio_files[idx]
-        waveform, sample_rate = librosa.load(audio_path, sr=self.sample_rate, mono=self.channels==1)        
+        waveform, sample_rate = torchaudio.load(audio_path)        
         
-        waveform = torch.as_tensor(waveform)
         if len(waveform.shape) == 1:
             waveform = waveform.unsqueeze(0)
             waveform = waveform.expand(self.channels, -1)
