@@ -41,8 +41,9 @@ causal=False
 ## References
 
 1. [High Fidelity Neural Audio Compression](https://arxiv.org/abs/2210.13438)
-2. [Encodec pytorch](https://github.com/ZhikangNiu/encodec-pytorch)
-3. [Encodec Trainer](https://github.com/Mikxox/EnCodec_Trainer)
+2. [Encodec codebase by Meta](https://github.com/facebookresearch/encodec)
+3. [Encodec pytorch](https://github.com/ZhikangNiu/encodec-pytorch)
+4. [Encodec Trainer](https://github.com/Mikxox/EnCodec_Trainer)
 
 ## License
 
