@@ -124,7 +124,7 @@ class EncodecModel(nn.Module):
         
     @staticmethod
     def _get_model(target_bandwidths: tp.List[float], sample_rate: int = 24000, 
-                  channels: int = 1, causal: bool = False, model_norm: str = 'layer_norm',
+                  channels: int = 1, causal: bool = False, model_norm: str = 'time_group_norm',
                   audio_normalize: bool = False, segment: tp.Optional[float] = None, name: str = 'encodec'):
         encoder = m.Encoder(channels=channels, norm=model_norm, causal=causal)
         decoder = m.Decoder(channels=channels, norm=model_norm, causal=causal)

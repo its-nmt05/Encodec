@@ -7,20 +7,20 @@ from .norm import ConvLayerNorm
 import typing as tp
 import math
 
-# def apply_norm(module: nn.Module, norm: str = 'none') -> nn.Module:
-#     if norm == 'layer_norm':
-#         return ConvLayerNorm(module)
-#     elif norm == 'weight_norm':
-#         return weight_norm(module)
-#     else:
-#         return module
+def apply_norm(module: nn.Module, norm: str = 'none') -> nn.Module:
+    if norm == 'weight_norm':
+        return weight_norm(module)
+    else:
+        return module
     
-def get_norm_module(module: nn.Module, norm: str = 'none') -> nn.Module:
+def get_norm_module(module: nn.Module, norm: str = 'none', causal: bool = False) -> nn.Module:
     """Returns the normalization module based on the given norm type"""
     if norm == 'layer_norm':
         return ConvLayerNorm(module.out_channels)
-    elif norm == 'weight_norm':
-        return weight_norm(module)
+    elif norm == 'time_group_norm':
+        if causal:
+            raise ValueError('Time group norm is not supported for causal evaluation')
+        return nn.GroupNorm(1, module.out_channels)
     else:
         return nn.Identity()
     
@@ -60,7 +60,7 @@ class NormConv1d(nn.Module):
     def __init__(self, *args, norm: str = 'none', **kwargs):
         super().__init__()
         # NormConv1d(in_channels, out_channels, kernel_size, stride, dilation, bias, norm=norm)
-        self.conv = nn.Conv1d(*args, **kwargs)
+        self.conv = apply_norm(nn.Conv1d(*args, **kwargs))
         self.norm = get_norm_module(self.conv, norm)
 
     def forward(self, x):
@@ -70,17 +70,17 @@ class NormConv1d(nn.Module):
 class NormConv2d(nn.Module):
     def __init__(self, *args, norm: str = 'none', **kwargs):
         super().__init__()
-        self.conv = nn.Conv2d(*args, **kwargs)
+        self.conv = apply_norm(nn.Conv2d(*args, **kwargs))
         self.norm = get_norm_module(self.conv, norm)
         
     def forward(self, x):
-        return self.conv(x)
+        return self.norm(self.conv(x))
 
 
 class NormConvTranspose1d(nn.Module):
     def __init__(self, *args, norm: str = 'none', **kwargs):
         super().__init__()
-        self.convtr = nn.ConvTranspose1d(*args, **kwargs)
+        self.convtr = apply_norm(nn.ConvTranspose1d(*args, **kwargs))
         self.norm = get_norm_module(self.convtr, norm)
 
     def forward(self, x):
@@ -90,7 +90,7 @@ class NormConvTranspose1d(nn.Module):
 class NormConvTranspose2d(nn.Module):
     def __init__(self, *args, norm: str = 'none', **kwargs):
         super().__init__()
-        self.convtr = nn.ConvTranspose2d(*args, **kwargs)
+        self.convtr = apply_norm(nn.ConvTranspose2d(*args, **kwargs))
         self.norm = get_norm_module(self.convtr, norm)
 
     def forward(self, x):
